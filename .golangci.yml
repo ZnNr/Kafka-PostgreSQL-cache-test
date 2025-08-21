@@ -1,0 +1,32 @@
+linters:
+  enable:
+    - gofmt
+    - govet
+    - staticcheck
+    - revive
+    - errcheck
+    - gocyclo
+    - gosec
+    - unconvert
+    - ineffassign
+
+linters-settings:
+  gocyclo:
+    min-complexity: 10
+  revive:
+    rules:
+      - name: blank-imports
+      - name: exported
+        disabled: true  # отключил правило проверки экспортируемых переменных
+      - name: if-return
+      - name: var-naming
+      - name: indent-error-flow
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+# Можно отключить проверку, если нужно
+# run:
+#   tests: false
