@@ -1,0 +1,130 @@
+# .golangci.yml
+run:
+  # Тесты тоже проверяем
+  tests: true
+
+  # Директории для исключения
+  skip-dirs:
+    - bin
+    - vendor
+    - .git
+    - tmp
+
+  # Файлы для исключения
+  skip-files:
+    - ".*_test.go$"
+
+linters:
+  enable:
+    - gofmt
+    - govet
+    - staticcheck
+    - revive
+    - errcheck
+    - gocyclo
+    - gosec
+    - unconvert
+    - ineffassign
+    - unused
+    - misspell
+    - goconst
+    - gosimple
+    - structcheck
+    - varcheck
+    - deadcode
+
+linters-settings:
+  gocyclo:
+    # Максимальная сложность функции
+    min-complexity: 15
+
+  revive:
+    rules:
+      - name: blank-imports
+      - name: context-as-argument
+      - name: context-keys-type
+      - name: dot-imports
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: exported
+        disabled: true  # Отключено для гибкости
+      - name: if-return
+      - name: increment-decrement
+      - name: var-naming
+      - name: var-declaration
+      - name: package-comments
+        disabled: true  # Отключено для упрощения
+      - name: range
+      - name: receiver-naming
+      - name: time-naming
+      - name: unexported-return
+      - name: indent-error-flow
+      - name: errorf
+      - name: empty-block
+      - name: superfluous-else
+
+  govet:
+    # Включить все проверки
+    check-shadowing: true
+    settings:
+      printf:
+        funcs:
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Infof
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Warnf
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Fatalf
+
+  errcheck:
+    # Игнорировать ошибки от этих функций
+    ignore: fmt:.*,io/ioutil:^Read.*
+    ignoretests: true
+
+  gosec:
+    # Настройки безопасности
+    excludes:
+      - G104  # Audit errors not checked (отключено, так как errcheck уже проверяет)
+    confidence: low
+    severity: low
+
+  staticcheck:
+    checks: ["all", "-SA1019"]  # Отключить устаревшие проверки
+
+issues:
+  # Не исключать стандартные исключения
+  exclude-use-default: false
+
+  # Максимальное количество проблем на линтер
+  max-issues-per-linter: 50
+
+  # Максимальное количество одинаковых проблем
+  max-same-issues: 10
+
+  # Исключения для конкретных правил
+  exclude-rules:
+    # Исключить некоторые правила для тестов
+    - path: _test\.go
+      linters:
+        - gocyclo
+        - errcheck
+        - gosec
+
+    # Исключить проверку ошибок для определенных функций
+    - linters:
+        - errcheck
+      text: "Error return value of .(fmt\\.Print|io\\.WriteString).* is not checked"
+
+    # Разрешить пустые блоки в тестах
+    - path: _test\.go
+      text: "should not use underscores in package names"
+
+  # Фильтрация по путям
+  exclude-files:
+    - ".*\\.pb\\.go$"  # Прото файлы
+    - ".*\\.gen\\.go$"  # Сгенерированные файлы
+
+# Настройки вывода
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
