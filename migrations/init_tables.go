@@ -1,4 +1,6 @@
-package migration
+// migrations/init_tables.go
+// Просто инициализирует все таблицы задания без версионирования и через один фаил schema.sql
+package migrations
 
 import (
 	"database/sql"
@@ -8,15 +10,25 @@ import (
 	"os"
 )
 
-const path = "migration/schema.sql"
+const path = "migrations/schema.sql"
 
 // InitializeDatabaseSchema initializes the database schema.
 func InitializeDatabaseSchema(db *sql.DB, logger *zap.Logger) error {
+	// Проверяем соединение
+	if err := db.Ping(); err != nil {
+		logger.Error("Database connection failed", zap.Error(err))
+		return fmt.Errorf("database connection failed: %w", err)
+	}
 
 	schema, err := os.ReadFile(path)
 	if err != nil {
-
-		logger.Error("Error reading SQL initialization file", zap.String("path", path), zap.Error(err))
+		if os.IsNotExist(err) {
+			logger.Warn("Schema file not found, skipping initialization", zap.String("path", path))
+			return nil
+		}
+		logger.Error("Error reading SQL initialization file",
+			zap.String("path", path),
+			zap.Error(err))
 		return fmt.Errorf("can't read SQL initialization file: %w", err)
 	}
 

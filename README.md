@@ -9,6 +9,7 @@ A demonstration service with a simple interface displaying order data.  This tas
 - Обеспечивает сохранение данных при перезапуске сервиса
 - Позволяет легко масштабировать и мониторить кэш
 
+!миграция с версионированием не работает!
 
 Тестовое задание
 Демонстрационный сервис с Kafka, PostgreSQL, кешем

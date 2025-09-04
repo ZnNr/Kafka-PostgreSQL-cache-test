@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS payments
     request_id    VARCHAR(255),
     currency      VARCHAR(10),
     provider      VARCHAR(50),
-    amount        INTEGER,
+    amount  DECIMAL(10, 2),
     payment_dt    BIGINT,
     bank          VARCHAR(50),
     delivery_cost DECIMAL(10, 2),

@@ -1,0 +1,159 @@
+<!DOCTYPE HTML>
+<html lang="ru">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WB ORDERS</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #ffebee; /* Светло-розовый фон */
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: auto;
+            background: #ffffff; /* Белый фон для контейнера */
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .title {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #d5006d; /* Темно-розовый цвет заголовка */
+        }
+
+        .main-orderuid {
+            width: calc(100% - 130px);
+            padding: 10px;
+            margin-right: 10px;
+            border: 1px solid #f48fb1; /* Розовая рамка */
+            border-radius: 4px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .main-orderuid:focus {
+            border-color: #d5006d; /* Тёмно-розовая рамка при фокусе */
+        }
+
+        .main-search {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            background-color: #d5006d; /* Тёмно-розовая кнопка */
+            color: #ffffff;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .main-search:hover {
+            background-color: #c51162; /* Темно-розовый при наведении */
+        }
+
+        .result {
+            display: none;
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #f1a7b4; /* Светло-розовая рамка результата */
+            border-radius: 4px;
+            background-color: #fce4ec; /* Супер светлый розовый фон */
+        }
+
+        .item {
+            border-bottom: 1px solid #f50057; /* Светло-розовая граница */
+            padding: 10px 0;
+        }
+
+        .item:last-child {
+            border-bottom: none;
+        }
+
+        .error-message {
+            color: red;
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+<div class="container">
+    <div class="title">
+        <h1 class="title__text">Информация по заказу</h1>
+    </div>
+
+    <h2>Введите UID заказа:</h2>
+    <form action="http://localhost:8080/order/" method="get" class="search-form" onsubmit="handleFormSubmit(event)">
+        <input type="text" name="order_uid" autofocus class="main-orderuid" placeholder="UID заказа..." required>
+        <input type="submit" value="Поиск" class="main-search">
+    </form>
+
+    <div id="error-message" class="error-message">Произошла ошибка при получении данных. Пожалуйста, проверьте UID заказа.</div>
+
+    <div id="result" class="result">
+        <h2>Результаты заказа:</h2>
+        <p><strong>UID заказа:</strong> <span id="display_order_uid"></span></p>
+        <p><strong>Номер отслеживания:</strong> <span id="display_track_number"></span></p>
+        <p><strong>Имя получателя:</strong> <span id="display_delivery_name"></span></p>
+        <p><strong>Телефон:</strong> <span id="display_delivery_phone"></span></p>
+        <p><strong>Город:</strong> <span id="display_delivery_city"></span></p>
+        <p><strong>Адрес:</strong> <span id="display_delivery_address"></span></p>
+        <p><strong>Сумма оплаты:</strong> €<span id="display_payment_amount"></span></p>
+
+        <h3>Список товаров:</h3>
+        <div id="items_list"></div>
+    </div>
+</div>
+
+<script>
+    function handleFormSubmit(event) {
+        event.preventDefault();
+        const form = event.target;
+        const orderUid = form.order_uid.value;
+
+        fetch(`http://localhost:8080/order/${orderUid}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Сервер вернул ошибку');
+                }
+                return response.json();
+            })
+            .then(displayOrderDetails)
+            .catch(showError);
+    }
+
+    function displayOrderDetails(response) {
+        document.getElementById('display_order_uid').innerText = response.order_uid;
+        document.getElementById('display_track_number').innerText = response.track_number;
+        document.getElementById('display_delivery_name').innerText = response.delivery.name;
+        document.getElementById('display_delivery_phone').innerText = response.delivery.phone;
+        document.getElementById('display_delivery_city').innerText = response.delivery.city;
+        document.getElementById('display_delivery_address').innerText = response.delivery.address;
+        document.getElementById('display_payment_amount').innerText = (response.payment.amount / 100).toFixed(2); // конвертируем cents в euros
+
+        const itemsList = document.getElementById('items_list');
+        itemsList.innerHTML = '';
+        response.items.forEach(item => {
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'item';
+            itemDiv.innerHTML = `<h3>${item.name}</h3><p>Цена: €${(item.price / 100).toFixed(2)}</p>`;
+            itemsList.appendChild(itemDiv);
+        });
+
+        document.getElementById('result').style.display = 'block';
+        document.getElementById('error-message').style.display = 'none'; // скрываем сообщение об ошибке
+    }
+
+    function showError() {
+        document.getElementById('error-message').style.display = 'block'; // показываем сообщение об ошибке
+        document.getElementById('result').style.display = 'none'; // скрываем результаты
+    }
+</script>
+</body>
+</html>
