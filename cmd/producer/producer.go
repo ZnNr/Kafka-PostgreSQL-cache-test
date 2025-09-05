@@ -1,15 +1,17 @@
-// cmd/producer/producer.go
 package main
 
 import (
 	"encoding/json"
 	"fmt"
+	"log"
+	"strconv"
+	"time"
+
 	"github.com/IBM/sarama"
 	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/config"
 	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/internal/datagenerators"
+	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/internal/models"
 	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/internal/repository"
-	"log"
-	"strconv"
 )
 
 var (
@@ -24,7 +26,7 @@ func main() {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	// подключ к базе данных
+	// Подключение к базе данных
 	ordersRepo, err := repository.New(cfg)
 	if err != nil {
 		log.Fatalf("Connection to DB failed: %v", err)
@@ -34,7 +36,14 @@ func main() {
 			log.Fatalf("Failed to close database connection: %v", err)
 		}
 	}()
+
+	// Проверка наличия брокеров
 	brokers := cfg.Kafka.Brokers
+	if len(brokers) == 0 {
+		log.Fatalf("No Kafka brokers configured")
+	}
+
+	// Создание продюсера
 	producer, err := ConnectProducer(brokers)
 	if err != nil {
 		log.Fatalf("Failed to connect to Kafka: %v", err)
@@ -46,98 +55,179 @@ func main() {
 	}()
 
 	log.Println("Producer is launched!")
-	// Получаем старые заказы
-	orders, err := ordersRepo.GetOrders()
-	if err != nil {
-		log.Fatalf("Failed to get old orders from DB: %v", err)
-	}
-	// Логи загруженных заказов
-	log.Printf("Loaded %d orders from the database", len(orders))
+	log.Printf("Connected to Kafka brokers: %v", brokers)
 
-	// Основной цикл ввода
+	orders, err := loadOrdersFromDB(ordersRepo)
+	if err != nil {
+		log.Fatalf("Failed to load orders: %v", err)
+	}
+
 	for {
-		log.Println("Type 's' to generate a new order")
-		log.Println("Type 'c' to select and send a copy of an existing order")
-		log.Println("Type 'exit' to quit the program")
+		fmt.Println("\n=== Order Producer ===")
+		fmt.Println("s - Generate and send new order")
+		fmt.Println("c - Send copy of existing order")
+		fmt.Println("r - Refresh orders list from database")
+		fmt.Println("exit - Quit program")
+		fmt.Print("Choose option: ")
+
 		var input string
-		var orderJSON []byte
 		fmt.Scanln(&input)
 
-		if input == "exit" {
+		switch input {
+		case "exit":
 			fmt.Println("Exiting the program...")
-			break
-		}
+			return
 
-		if input == "s" {
-			orderGenerated := datagenerators.GenerateOrder()
-			orderJSON, err = json.Marshal(orderGenerated)
+		case "r":
+			orders, err = loadOrdersFromDB(ordersRepo)
 			if err != nil {
-				log.Printf("Failed to convert order to JSON: %s", err)
-				continue
+				log.Printf("Failed to refresh orders: %v", err)
 			}
-		}
-
-		if input == "c" {
-			if len(orders) == 0 {
-				log.Println("No orders available to select.")
-				continue
-			}
-			log.Println("Choose one of old orders:")
-			for i := 0; i < len(orders); i++ {
-				fmt.Println(i, orders[i].OrderUID)
-			}
-			var indstr string
-			fmt.Scanln(&indstr)
-			ind, err := strconv.Atoi(indstr)
-			if err != nil {
-				log.Println("Entered is not a number!")
-				continue
-			}
-			if ind < 0 || ind > len(orders) {
-				log.Println("Entered number isn't in range of orders!")
-				continue
-			}
-			orderJSON, err = json.Marshal(orders[ind])
-			if err != nil {
-				log.Printf("Failed to convert order to JSON: %s", err)
-				continue
-			}
-		}
-
-		err = PushOrderToQueue(producer, topic, orderJSON)
-		if err != nil {
-			log.Printf("Failed to send message to Kafka: %s", err)
 			continue
-		}
 
-		log.Printf("Successfully sent order")
+		case "s", "c":
+			// Обработка генерации или выбора заказа
+			if err := processOrder(input, orders, ordersRepo, producer, topic); err != nil {
+				log.Printf("Error processing order: %v", err)
+			}
+
+		default:
+			fmt.Println("Invalid input. Please choose s, c, r or exit")
+		}
 	}
 }
 
-func ConnectProducer(brokers []string) (sarama.SyncProducer, error) {
-	config := sarama.NewConfig()
-	config.Producer.Return.Successes = true
-	config.Producer.RequiredAcks = sarama.WaitForAll
-
-	return sarama.NewSyncProducer(brokers, config)
+// loadOrdersFromDB загружает заказы из базы данных
+func loadOrdersFromDB(repo *repository.OrdersRepo) ([]models.Order, error) {
+	orders, err := repo.GetOrders()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get orders from DB: %w", err)
+	}
+	log.Printf("Loaded %d orders from database", len(orders))
+	return orders, nil
 }
 
+// processOrder обрабатывает команду генерации или выбора заказа
+func processOrder(command string, orders []models.Order, repo *repository.OrdersRepo, producer sarama.SyncProducer, topic string) error {
+	var order models.Order
+	var err error
+
+	switch command {
+	case "s":
+		// Генерация нового заказа
+		order = datagenerators.GenerateOrder()
+		log.Printf("Generated new order: %s", order.OrderUID)
+
+	case "c":
+		if len(orders) == 0 {
+			return fmt.Errorf("no orders available to select")
+		}
+
+		fmt.Println("Available orders:")
+		for i, o := range orders {
+			fmt.Printf("%d: %s (Created: %s)\n", i, o.OrderUID, o.DateCreated.Format("2006-01-02 15:04"))
+		}
+
+		fmt.Print("Select order number: ")
+		var input string
+		fmt.Scanln(&input)
+
+		index, err := strconv.Atoi(input)
+		if err != nil {
+			return fmt.Errorf("invalid number: %w", err)
+		}
+
+		if index < 0 || index >= len(orders) {
+			return fmt.Errorf("index out of range (0-%d)", len(orders)-1)
+		}
+
+		order = orders[index]
+		log.Printf("Selected order: %s", order.OrderUID)
+	}
+
+	// Валидация заказа перед отправкой
+	if err := validateOrder(order); err != nil {
+		return fmt.Errorf("order validation failed: %w", err)
+	}
+
+	orderJSON, err := json.Marshal(order)
+	if err != nil {
+		return fmt.Errorf("failed to marshal order: %w", err)
+	}
+
+	if err := PushOrderToQueue(producer, topic, orderJSON); err != nil {
+		return fmt.Errorf("failed to send to Kafka: %w", err)
+	}
+
+	log.Printf("Successfully sent order %s to Kafka", order.OrderUID)
+	return nil
+}
+
+// validateOrder выполняет базовую валидацию заказа
+func validateOrder(order models.Order) error {
+	if order.OrderUID == "" {
+		return fmt.Errorf("order UID is required")
+	}
+	if order.TrackNumber == "" {
+		return fmt.Errorf("track number is required")
+	}
+	if len(order.Items) == 0 {
+		return fmt.Errorf("order must contain at least one item")
+	}
+	return nil
+}
+
+// ConnectProducer создает надежного продюсера Kafka
+func ConnectProducer(brokers []string) (sarama.SyncProducer, error) {
+	config := sarama.NewConfig()
+
+	// Настройки для надежной доставки
+	config.Producer.RequiredAcks = sarama.WaitForAll // Ждем подтверждения от всех реплик
+	config.Producer.Retry.Max = 5                    // Максимальное количество попыток
+	config.Producer.Retry.Backoff = 1 * time.Second  // Задержка между попытками
+	config.Producer.Return.Successes = true          // Получаем подтверждения
+	config.Producer.Timeout = 30 * time.Second       // Таймаут операций
+	config.Producer.MaxMessageBytes = 1000000        // Максимальный размер сообщения 1MB
+
+	// Настройки сжатия для эффективности
+	config.Producer.Compression = sarama.CompressionSnappy
+
+	// Идентификатор клиента для мониторинга
+	config.ClientID = "order-producer"
+
+	producer, err := sarama.NewSyncProducer(brokers, config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create producer: %w", err)
+	}
+
+	return producer, nil
+}
+
+// PushOrderToQueue отправляет сообщение в Kafka с обработкой ошибок
 func PushOrderToQueue(producer sarama.SyncProducer, topic string, message []byte) error {
+	if producer == nil {
+		return fmt.Errorf("producer is not initialized")
+	}
+	if len(message) == 0 {
+		return fmt.Errorf("message is empty")
+	}
+	if topic == "" {
+		return fmt.Errorf("topic is required")
+	}
+
+	// Создание сообщения с ключом для партиционирования
 	msg := &sarama.ProducerMessage{
 		Topic: topic,
-		Value: sarama.StringEncoder(message),
+		Value: sarama.ByteEncoder(message),
 	}
 
 	partition, offset, err := producer.SendMessage(msg)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to send message: %w", err)
 	}
 
-	log.Printf("Order is stored in topic(%s)/partition(%d)/offset(%d)\n",
-		topic,
-		partition,
-		offset,
-	)
+	log.Printf("Message successfully delivered to topic %s, partition %d, offset %d",
+		topic, partition, offset)
 
 	return nil
 }

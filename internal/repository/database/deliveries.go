@@ -1,4 +1,3 @@
-// internal/repository/database
 package database
 
 import (
@@ -27,7 +26,6 @@ const (
 )
 
 func AddDelivery(db *sql.DB, delivery models.Delivery, orderUID string) (string, error) {
-	// Проверяем, существует ли доставка с данным order_uid
 	existingDelivery, err := GetDelivery(db, orderUID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return "", fmt.Errorf("не удалось получить доставку: %w", err)
@@ -53,10 +51,8 @@ func AddDelivery(db *sql.DB, delivery models.Delivery, orderUID string) (string,
 	}
 
 	if existingDelivery != nil {
-		// Если существующая доставка найдена
 		operationMessage = fmt.Sprintf("Доставка с order_uid %s успешно обновлена", returnedOrderUID)
 	} else {
-		// Если доставка новая
 		operationMessage = fmt.Sprintf("Создана новая доставка с order_uid %s", returnedOrderUID)
 	}
 

@@ -46,7 +46,6 @@ func main() {
 	appCache := initializeCache(cfg, ordersRepo, logger)
 	defer closeCache(appCache, logger)
 
-	// Переименовываем переменную, чтобы избежать конфликта с пакетом
 	httpServer := initializeController(cfgPath, appCache, logger)
 	startServer(httpServer, logger)
 
@@ -54,7 +53,7 @@ func main() {
 	sigchan := make(chan os.Signal, 1)
 	signal.Notify(sigchan, os.Interrupt, syscall.SIGTERM)
 
-	// Запускаем Kafka consumer
+	// Kafka consumer
 	subscribeToKafka(appCache, ordersRepo, logger, sigchan)
 
 	logger.Info("Application shutting down")
@@ -164,22 +163,22 @@ func subscribeToKafka(cache cache.Cache, repo *repository.OrdersRepo, logger *za
 	defer cancel()
 
 	var wg sync.WaitGroup
-	wg.Add(1) // Добавляем в группу ожидания
+	wg.Add(1)
 
 	go func() {
-		defer wg.Done() // Убедимся, что wait group завершится
+		defer wg.Done()
 
-		if err := consumer.Subscribe(ctx, cache, repo, logger, &wg); err != nil {
+		// Добавляем brokers как шестой параметр
+		if err := consumer.Subscribe(ctx, cache, repo, logger, &wg, []string{"localhost:9092"}); err != nil {
 			logger.Error("Consumer error", zap.Error(err))
 		} else {
 			logger.Info("Consumer started successfully")
 		}
 	}()
 
-	// Обрабатываем системные сигналы и завершаем работу при их получении
 	sig := <-sigchan
 	logger.Info("Received signal, shutting down...", zap.String("signal", sig.String()))
-	cancel() // Отменяем контекст, что инициирует завершение работы consumer
+	cancel()
 
 	wg.Wait() // Ждем завершения работы go-рутины
 	logger.Info("Consumer shut down gracefully")

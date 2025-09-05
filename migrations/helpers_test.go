@@ -1,17 +1,13 @@
-// migrations/helpers_test.go
 package migrations
 
 import (
 	"strconv"
 )
 
-// Эти функции дублируют логику из основного кода для тестирования
-
 func parseVersionFromFilename(filename string) int {
 	parts := []string{}
 	current := ""
 
-	// Находим позицию последней точки перед .sql
 	dotPos := -1
 	for i := len(filename) - 5; i >= 0; i-- { // -5 чтобы пропустить ".sql"
 		if filename[i] == '.' {
@@ -20,13 +16,11 @@ func parseVersionFromFilename(filename string) int {
 		}
 	}
 
-	// Берем часть до последней точки
 	namePart := filename
 	if dotPos > 0 {
 		namePart = filename[:dotPos]
 	}
 
-	// Разделяем по подчеркиванию
 	for _, char := range namePart {
 		if char == '_' {
 			if current != "" {
@@ -46,7 +40,6 @@ func parseVersionFromFilename(filename string) int {
 	}
 
 	versionStr := parts[0]
-	// Убираем ведущие нули
 	for len(versionStr) > 1 && versionStr[0] == '0' {
 		versionStr = versionStr[1:]
 	}

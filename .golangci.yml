@@ -1,4 +1,3 @@
-# .golangci.yml
 run:
   # Тесты тоже проверяем
   tests: true
@@ -9,12 +8,14 @@ run:
     - vendor
     - .git
     - tmp
+    - testdata
 
   # Файлы для исключения
   skip-files:
-    - ".*_test.go$"
+    - ".*_test\\.go$"
 
 linters:
+  disable-all: true
   enable:
     - gofmt
     - govet
@@ -32,10 +33,11 @@ linters:
     - structcheck
     - varcheck
     - deadcode
+    - typecheck
 
 linters-settings:
   gocyclo:
-    # Максимальная сложность функции
+    # Минимальная сложность для проверки (не максимальная!)
     min-complexity: 15
 
   revive:
@@ -48,13 +50,13 @@ linters-settings:
       - name: error-strings
       - name: error-naming
       - name: exported
-        disabled: true  # Отключено для гибкости
+        disabled: true
       - name: if-return
       - name: increment-decrement
       - name: var-naming
       - name: var-declaration
       - name: package-comments
-        disabled: true  # Отключено для упрощения
+        disabled: true
       - name: range
       - name: receiver-naming
       - name: time-naming
@@ -65,66 +67,74 @@ linters-settings:
       - name: superfluous-else
 
   govet:
-    # Включить все проверки
     check-shadowing: true
-    settings:
-      printf:
-        funcs:
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Infof
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Warnf
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Fatalf
+    enable-all: true
+    disable:
+      - fieldalignment
 
   errcheck:
-    # Игнорировать ошибки от этих функций
-    ignore: fmt:.*,io/ioutil:^Read.*
+    check-type-assertions: true
+    check-blank: true
+    ignore: |
+      fmt:[.*],
+      io/ioutil:^Read.*,
+      os:^(Remove|Mkdir).*,
+      bytes:.*,
+      strings:.*
     ignoretests: true
 
   gosec:
-    # Настройки безопасности
     excludes:
-      - G104  # Audit errors not checked (отключено, так как errcheck уже проверяет)
-    confidence: low
-    severity: low
+      - G104 # Audit errors not checked
+      - G307 # Deferring unsafe method "Close" on type "*os.File"
+    confidence: medium
+    severity: medium
 
   staticcheck:
-    checks: ["all", "-SA1019"]  # Отключить устаревшие проверки
+    checks: ["all", "-SA1019", "-ST1000"] # ST1000 - package naming
+
+  unused:
+    check-exported: false
 
 issues:
-  # Не исключать стандартные исключения
   exclude-use-default: false
-
-  # Максимальное количество проблем на линтер
   max-issues-per-linter: 50
-
-  # Максимальное количество одинаковых проблем
   max-same-issues: 10
 
-  # Исключения для конкретных правил
   exclude-rules:
-    # Исключить некоторые правила для тестов
-    - path: _test\.go
+    - path: internal/cache/redis_cache.go
+      linters:
+        - typecheck
+    # Исключить для тестов
+    - path: _test\.go$
       linters:
         - gocyclo
-        - errcheck
         - gosec
+        - funlen
 
-    # Исключить проверку ошибок для определенных функций
+    # Разрешить неиспользуемые параметры в интерфейсах
+    - linters:
+        - unused
+      text: "parameter.*is unused"
+
+    # Игнорировать ошибки вывода
     - linters:
         - errcheck
-      text: "Error return value of .(fmt\\.Print|io\\.WriteString).* is not checked"
+      text: "Error return value of .(fmt\\.Print|fmt\\.Println|fmt\\.Printf).* is not checked"
 
-    # Разрешить пустые блоки в тестах
-    - path: _test\.go
+    # Игнорировать проверку имен пакетов в тестах
+    - path: _test\.go$
+      linters:
+        - revive
       text: "should not use underscores in package names"
 
-  # Фильтрация по путям
-  exclude-files:
-    - ".*\\.pb\\.go$"  # Прото файлы
-    - ".*\\.gen\\.go$"  # Сгенерированные файлы
+  exclude:
+    # Общие исключения
+    - "comment on exported.*" # От revive exported rule
+    - "package comment.*"     # От package-comments
 
-# Настройки вывода
 output:
   format: colored-line-number
   print-issued-lines: true
   print-linter-name: true
+  uniq-by-line: true

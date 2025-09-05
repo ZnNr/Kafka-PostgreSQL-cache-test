@@ -29,11 +29,11 @@ func (c *Controller) SetupRouter() *mux.Router {
 	corsMethods := handlers.AllowedMethods([]string{"GET", "POST", "PUT", "DELETE", "OPTIONS"})
 	corsHeaders := handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Authorization"})
 
-	// Применяем middleware для CORS
+	// middleware для CORS
 	r.Use(handlers.CORS(corsOptions, corsMethods, corsHeaders))
 	r.Use(c.preflightHandler)
 
-	// Маршруты вашего API
+	// Маршруты
 	r.HandleFunc("/order/{order_uid}", c.HandleGetOrder).Methods(http.MethodGet, http.MethodOptions)
 	r.HandleFunc("/order/{order_uid}", c.HandleDeleteOrder).Methods(http.MethodDelete, http.MethodOptions)
 	r.HandleFunc("/delorders", c.HandleClearOrders).Methods(http.MethodDelete, http.MethodOptions)
@@ -110,7 +110,7 @@ func (c *Controller) HandleGetAllOrders(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if len(orders) == 0 {
-		c.writeJSON(w, http.StatusOK, []models.Order{}) // Если заказов нет, возвращаем пустой массив
+		c.writeJSON(w, http.StatusOK, []models.Order{})
 		return
 	}
 	c.writeJSON(w, http.StatusOK, orders)

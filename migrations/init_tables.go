@@ -1,5 +1,3 @@
-// migrations/init_tables.go
-// Просто инициализирует все таблицы задания без версионирования и через один фаил schema.sql
 package migrations
 
 import (
@@ -14,7 +12,6 @@ const path = "migrations/schema.sql"
 
 // InitializeDatabaseSchema initializes the database schema.
 func InitializeDatabaseSchema(db *sql.DB, logger *zap.Logger) error {
-	// Проверяем соединение
 	if err := db.Ping(); err != nil {
 		logger.Error("Database connection failed", zap.Error(err))
 		return fmt.Errorf("database connection failed: %w", err)

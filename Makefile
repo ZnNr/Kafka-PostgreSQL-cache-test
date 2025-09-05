@@ -70,31 +70,7 @@ clean:
 	@find . -name "*\.test" -delete 2>/dev/null || true
 	@echo "🧹 Временные файлы удалены"
 
-# Docker Compose команды
-up:
-	docker-compose up -d
 
-down:
-	docker-compose down
-
-up-logs:
-	docker-compose up
-
-# Подключение к Redis CLI
-redis-cli:
-	docker-compose exec redis redis-cli
-
-# Подключение к PostgreSQL
-psql:
-	docker-compose exec postgres psql -U my_user -d orders_db
-
-# Просмотр логов
-logs:
-	docker-compose logs -f
-
-# Просмотр статуса сервисов
-status:
-	docker-compose ps
 
 # Запуск сервиса
 run-service:

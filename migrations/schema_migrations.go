@@ -1,4 +1,3 @@
-// migrations/schema_migrations.go
 package migrations
 
 import (
@@ -119,7 +118,6 @@ func (sm *SchemaMigrations) GetAppliedVersions() ([]int, error) {
 		versions = append(versions, version)
 	}
 
-	// Проверяем ошибки после итерации
 	if err := rows.Err(); err != nil {
 		sm.logger.Error("Error iterating rows", zap.Error(err))
 		return nil, fmt.Errorf("error iterating rows: %w", err)

@@ -1,4 +1,3 @@
-// internal/cache/inmemory_cache_test.go
 package cache
 
 import (
@@ -30,14 +29,11 @@ func TestNewInMemoryCache(t *testing.T) {
 func TestInMemoryCache_SaveAndGetOrder(t *testing.T) {
 	cache := setupTestInMemoryCache(t)
 
-	// Генерируем тестовый заказ
 	order := datagenerators.GenerateOrder()
 
-	// Сохраняем заказ
 	err := cache.SaveOrder(order)
 	assert.NoError(t, err)
 
-	// Получаем заказ
 	retrievedOrder, exists, err := cache.GetOrder(order.OrderUID)
 	assert.NoError(t, err)
 	assert.True(t, exists)
@@ -47,7 +43,6 @@ func TestInMemoryCache_SaveAndGetOrder(t *testing.T) {
 func TestInMemoryCache_GetOrder_NonExistent(t *testing.T) {
 	cache := setupTestInMemoryCache(t)
 
-	// Пытаемся получить несуществующий заказ
 	_, exists, err := cache.GetOrder("non-existent-order-uid")
 	assert.NoError(t, err)
 	assert.False(t, exists)
