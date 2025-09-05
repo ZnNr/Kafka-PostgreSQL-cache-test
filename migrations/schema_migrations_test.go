@@ -39,10 +39,8 @@ func TestMigration_ParseVersionFromFilename(t *testing.T) {
 
 // Вспомогательные функции для тестирования
 func splitFilename(filename string) []string {
-	// Убираем расширение
 	name := filename[:len(filename)-len(".sql")]
 
-	// Разделяем по подчеркиванию
 	parts := []string{}
 	current := ""
 	for _, char := range name {
@@ -62,7 +60,6 @@ func splitFilename(filename string) []string {
 }
 
 func trimLeftZeros(s string) string {
-	// Убираем ведущие нули
 	for len(s) > 1 && s[0] == '0' {
 		s = s[1:]
 	}

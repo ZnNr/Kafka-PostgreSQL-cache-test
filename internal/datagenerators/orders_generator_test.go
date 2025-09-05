@@ -1,4 +1,3 @@
-// internal/datagenerators/orders_generator_test.go
 package datagenerators
 
 import (
@@ -10,7 +9,6 @@ import (
 func TestGenerateOrder(t *testing.T) {
 	order := GenerateOrder()
 
-	// Проверяем, что все обязательные поля заполнены
 	assert.NotEmpty(t, order.OrderUID)
 	assert.NotEmpty(t, order.TrackNumber)
 	assert.NotEmpty(t, order.EntryPoint)
@@ -22,10 +20,8 @@ func TestGenerateOrder(t *testing.T) {
 	assert.NotZero(t, order.StateMachineID)
 	assert.NotZero(t, order.DateCreated.Unix())
 
-	// Проверяем, что OrderUID является валидным UUID
 	assert.True(t, isValidUUID(order.OrderUID))
 
-	// Проверяем структуру доставки
 	assert.NotEmpty(t, order.Delivery.Name)
 	assert.NotEmpty(t, order.Delivery.Phone)
 	assert.NotEmpty(t, order.Delivery.Zip)
@@ -34,17 +30,14 @@ func TestGenerateOrder(t *testing.T) {
 	assert.NotEmpty(t, order.Delivery.Region)
 	assert.NotEmpty(t, order.Delivery.Email)
 
-	// Проверяем, что OrderUID в Delivery совпадает с OrderUID заказа
 	assert.Equal(t, order.OrderUID, order.Delivery.OrderUID)
 
-	// Проверяем платежную информацию
 	assert.NotEmpty(t, order.Payment.TransactionUID)
 	assert.NotEmpty(t, order.Payment.CurrencyCode)
 	assert.NotEmpty(t, order.Payment.PaymentProvider)
 	assert.NotEmpty(t, order.Payment.BankCode)
 	assert.NotZero(t, order.Payment.PaymentDateTime)
 
-	// Проверяем товары
 	assert.NotEmpty(t, order.Items)
 	assert.True(t, len(order.Items) >= 1 && len(order.Items) <= 5)
 
@@ -65,7 +58,6 @@ func TestGenerateOrder(t *testing.T) {
 func TestGenerateMultipleOrders(t *testing.T) {
 	orders := make(map[string]bool)
 
-	// Генерируем 100 заказов и проверяем уникальность UID
 	for i := 0; i < 100; i++ {
 		order := GenerateOrder()
 		assert.False(t, orders[order.OrderUID], "Order UID should be unique")
@@ -76,7 +68,6 @@ func TestGenerateMultipleOrders(t *testing.T) {
 }
 
 func TestRandomString(t *testing.T) {
-	// Тестируем функцию randomString
 	for _, length := range []int{5, 10, 15, 20} {
 		result := randomString(length)
 		assert.Equal(t, length, len(result))
@@ -85,7 +76,6 @@ func TestRandomString(t *testing.T) {
 }
 
 func TestRandomPhone(t *testing.T) {
-	// Тестируем функцию randomPhone
 	for i := 0; i < 10; i++ {
 		phone := randomPhone()
 		assert.Regexp(t, `^\+7\d{10}$`, phone)
@@ -93,7 +83,6 @@ func TestRandomPhone(t *testing.T) {
 }
 
 func TestRandomZip(t *testing.T) {
-	// Тестируем функцию randomZip
 	for i := 0; i < 10; i++ {
 		zip := randomZip()
 		assert.Regexp(t, `^\d{6}$`, zip)
@@ -101,7 +90,6 @@ func TestRandomZip(t *testing.T) {
 }
 
 func TestRandomEmail(t *testing.T) {
-	// Тестируем функцию randomEmail
 	validDomains := []string{"gmail.com", "yahoo.com", "hotmail.com", "example.com"}
 
 	for i := 0; i < 20; i++ {
@@ -116,7 +104,6 @@ func TestRandomEmail(t *testing.T) {
 }
 
 func TestRandomSize(t *testing.T) {
-	// Тестируем функцию randomSize
 	validSizes := []string{"XS", "S", "M", "L", "XL", "XXL", "XXXL", "36", "38", "40", "42", "44"}
 
 	for i := 0; i < 20; i++ {
@@ -126,7 +113,6 @@ func TestRandomSize(t *testing.T) {
 }
 
 func TestRandomProductName(t *testing.T) {
-	// Тестируем функцию randomProductName
 	validProducts := []string{
 		"T-Shirt", "Jeans", "Sneakers", "Jacket", "Dress", "Shirt",
 		"Skirt", "Shorts", "Sweater", "Coat", "Boots", "Sandals",
@@ -140,7 +126,6 @@ func TestRandomProductName(t *testing.T) {
 }
 
 func TestRandomBrand(t *testing.T) {
-	// Тестируем функцию randomBrand
 	validBrands := []string{
 		"Nike", "Adidas", "Puma", "Reebok", "New Balance", "Converse",
 		"Zara", "H&M", "Uniqlo", "Gucci", "Prada", "Louis Vuitton",
@@ -154,7 +139,6 @@ func TestRandomBrand(t *testing.T) {
 }
 
 func TestRandomFullName(t *testing.T) {
-	// Тестируем функцию randomFullName
 	validFirstNames := []string{"John", "Jane", "Alice", "Bob", "Charlie", "Diana", "Eve", "Frank"}
 	validLastNames := []string{"Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis"}
 
@@ -168,7 +152,6 @@ func TestRandomFullName(t *testing.T) {
 }
 
 func TestGenerateLocale(t *testing.T) {
-	// Тестируем функцию generateLocale
 	validLocales := []string{"en", "ru", "zh", "es", "de"}
 
 	for i := 0; i < 20; i++ {
@@ -178,7 +161,6 @@ func TestGenerateLocale(t *testing.T) {
 }
 
 func TestGenerateItems(t *testing.T) {
-	// Тестируем функцию generateItems
 	for i := 0; i < 20; i++ {
 		items := generateItems()
 		assert.True(t, len(items) >= 1 && len(items) <= 5)
@@ -200,7 +182,6 @@ func TestGenerateItems(t *testing.T) {
 }
 
 func TestGeneratePayment(t *testing.T) {
-	// Тестируем функцию generatePayment
 	validCurrencies := []string{"USD", "RUB", "EUR", "CNY"}
 	validProviders := []string{"wbpay", "yookassa", "stripe", "paypal"}
 	validBanks := []string{"alpha", "sber", "vtb", "raiffeisen"}
@@ -228,7 +209,6 @@ func TestGeneratePayment(t *testing.T) {
 }
 
 func TestGenerateDelivery(t *testing.T) {
-	// Тестируем функцию generateDelivery
 	for i := 0; i < 10; i++ {
 		delivery := generateDelivery()
 
@@ -247,13 +227,11 @@ func TestGenerateDelivery(t *testing.T) {
 	}
 }
 
-// Вспомогательная функция для проверки валидности UUID
 func isValidUUID(uuid string) bool {
 	if len(uuid) != 36 {
 		return false
 	}
 
-	// Простая проверка формата UUID
 	parts := strings.Split(uuid, "-")
 	if len(parts) != 5 {
 		return false
@@ -264,7 +242,6 @@ func isValidUUID(uuid string) bool {
 		return false
 	}
 
-	// Проверяем, что все символы допустимы
 	for _, part := range parts {
 		for _, char := range part {
 			if !(char >= '0' && char <= '9') && !(char >= 'a' && char <= 'f') {

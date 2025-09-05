@@ -1,4 +1,3 @@
-// internal/repository
 package repository
 
 import "github.com/ZnNr/Kafka-PostgreSQL-cache-test/internal/models"

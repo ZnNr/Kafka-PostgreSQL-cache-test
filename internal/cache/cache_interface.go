@@ -1,4 +1,3 @@
-// internal/cache/cache_interface.go
 package cache
 
 import "github.com/ZnNr/Kafka-PostgreSQL-cache-test/internal/models"

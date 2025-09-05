@@ -1,4 +1,3 @@
-// internal/cache/mock_cache.go
 package cache
 
 import (

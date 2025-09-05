@@ -1,4 +1,3 @@
-// internal/repository/database
 package database
 
 import (

@@ -1,4 +1,3 @@
-// migrations/migrations.go
 package migrations
 
 import (
@@ -53,18 +52,15 @@ func NewMigrationManager(db *sql.DB, logger *zap.Logger) *MigrationManager {
 func (mgr *MigrationManager) Up() error {
 	mgr.logger.Info("Starting database migrations (Up)")
 
-	// Создаем таблицу миграций
 	if err := mgr.schemaMigrations.CreateMigrationTable(); err != nil {
 		return fmt.Errorf("can't create migrations table: %w", err)
 	}
 
-	// Получаем файлы миграций
 	migrationFiles, err := mgr.getMigrationFiles(MigrationUp)
 	if err != nil {
 		return fmt.Errorf("can't get migrations files: %w", err)
 	}
 
-	// Сортируем по версии
 	sort.Slice(migrationFiles, func(i, j int) bool {
 		return migrationFiles[i].Version < migrationFiles[j].Version
 	})
@@ -101,7 +97,6 @@ func (mgr *MigrationManager) Up() error {
 func (mgr *MigrationManager) Down() error {
 	mgr.logger.Info("Starting database migrations rollback (Down)")
 
-	// Получаем последнюю примененную миграцию
 	versions, err := mgr.schemaMigrations.GetAppliedVersions()
 	if err != nil {
 		return fmt.Errorf("failed to get applied versions: %w", err)
@@ -112,10 +107,8 @@ func (mgr *MigrationManager) Down() error {
 		return nil
 	}
 
-	// Берем последнюю версию
 	lastVersion := versions[len(versions)-1]
 
-	// Ищем соответствующий down файл
 	migrationFiles, err := mgr.getMigrationFiles(MigrationDown)
 	if err != nil {
 		return fmt.Errorf("failed to get migrations files: %w", err)
@@ -164,7 +157,6 @@ func (mgr *MigrationManager) executeMigration(migration *MigrationFile) error {
 		}
 	}()
 
-	// Разделяем на отдельные statements
 	statements := strings.Split(migration.Content, ";")
 
 	for i, stmt := range statements {
@@ -213,7 +205,6 @@ func (mgr *MigrationManager) getMigrationFiles(migrationType MigrationType) ([]M
 			continue
 		}
 
-		// Парсим версию из имени файла (например, 001_create_orders.up.sql)
 		parts := strings.Split(filename, "_")
 		if len(parts) < 2 {
 			continue

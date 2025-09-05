@@ -1,4 +1,3 @@
-// internal/datagenerators/orders_generator.go
 package datagenerators
 
 import (
@@ -12,7 +11,6 @@ import (
 
 func GenerateOrder() models.Order {
 
-	// Генерируем дату создания
 	dateCreated := time.Now()
 
 	order := models.Order{
@@ -33,7 +31,6 @@ func GenerateOrder() models.Order {
 		Items:    generateItems(),
 	}
 
-	// Устанавливаем OrderUID в Delivery
 	order.Delivery.OrderUID = order.OrderUID
 
 	return order
@@ -71,7 +68,6 @@ func generatePayment() models.Payment {
 }
 
 func generateItems() []models.OrderItem {
-	// Генерируем от 1 до 5 товаров
 	count := rand.Intn(5) + 1
 	items := make([]models.OrderItem, count)
 

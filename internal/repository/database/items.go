@@ -1,4 +1,3 @@
-// internal/repository/database
 package database
 
 import (
@@ -100,7 +99,6 @@ func GetItems(db *sql.DB, orderUID string) ([]models.OrderItem, error) {
 	}
 
 	if len(items) == 0 {
-		// Логируем ненайденный orderUID
 		fmt.Printf("No items found for order UID %s\n", orderUID)
 		return nil, fmt.Errorf("items not found for order UID %s", orderUID)
 	}
