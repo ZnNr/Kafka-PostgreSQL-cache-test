@@ -1,0 +1,140 @@
+run:
+  # Тесты тоже проверяем
+  tests: true
+
+  # Директории для исключения
+  skip-dirs:
+    - bin
+    - vendor
+    - .git
+    - tmp
+    - testdata
+
+  # Файлы для исключения
+  skip-files:
+    - ".*_test\\.go$"
+
+linters:
+  disable-all: true
+  enable:
+    - gofmt
+    - govet
+    - staticcheck
+    - revive
+    - errcheck
+    - gocyclo
+    - gosec
+    - unconvert
+    - ineffassign
+    - unused
+    - misspell
+    - goconst
+    - gosimple
+    - structcheck
+    - varcheck
+    - deadcode
+    - typecheck
+
+linters-settings:
+  gocyclo:
+    # Минимальная сложность для проверки (не максимальная!)
+    min-complexity: 15
+
+  revive:
+    rules:
+      - name: blank-imports
+      - name: context-as-argument
+      - name: context-keys-type
+      - name: dot-imports
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: exported
+        disabled: true
+      - name: if-return
+      - name: increment-decrement
+      - name: var-naming
+      - name: var-declaration
+      - name: package-comments
+        disabled: true
+      - name: range
+      - name: receiver-naming
+      - name: time-naming
+      - name: unexported-return
+      - name: indent-error-flow
+      - name: errorf
+      - name: empty-block
+      - name: superfluous-else
+
+  govet:
+    check-shadowing: true
+    enable-all: true
+    disable:
+      - fieldalignment
+
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+    ignore: |
+      fmt:[.*],
+      io/ioutil:^Read.*,
+      os:^(Remove|Mkdir).*,
+      bytes:.*,
+      strings:.*
+    ignoretests: true
+
+  gosec:
+    excludes:
+      - G104 # Audit errors not checked
+      - G307 # Deferring unsafe method "Close" on type "*os.File"
+    confidence: medium
+    severity: medium
+
+  staticcheck:
+    checks: ["all", "-SA1019", "-ST1000"] # ST1000 - package naming
+
+  unused:
+    check-exported: false
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 50
+  max-same-issues: 10
+
+  exclude-rules:
+    - path: internal/cache/redis_cache.go
+      linters:
+        - typecheck
+    # Исключить для тестов
+    - path: _test\.go$
+      linters:
+        - gocyclo
+        - gosec
+        - funlen
+
+    # Разрешить неиспользуемые параметры в интерфейсах
+    - linters:
+        - unused
+      text: "parameter.*is unused"
+
+    # Игнорировать ошибки вывода
+    - linters:
+        - errcheck
+      text: "Error return value of .(fmt\\.Print|fmt\\.Println|fmt\\.Printf).* is not checked"
+
+    # Игнорировать проверку имен пакетов в тестах
+    - path: _test\.go$
+      linters:
+        - revive
+      text: "should not use underscores in package names"
+
+  exclude:
+    # Общие исключения
+    - "comment on exported.*" # От revive exported rule
+    - "package comment.*"     # От package-comments
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+  uniq-by-line: true

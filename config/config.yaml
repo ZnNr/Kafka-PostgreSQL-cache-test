@@ -1,0 +1,24 @@
+# config/config.yaml
+app:
+  host: localhost
+  port: 8080
+
+db:
+  host: localhost
+  port: 5432
+  name: orders_db
+  user: my_user
+  password: my_password
+
+kafka:
+  brokers:
+    - localhost:9092
+  topic: orders
+
+cache:
+  type: "redis"
+  redis:
+    addr: "localhost:6379"  # или "redis:6379" если Docker
+    password: ""
+    db: 0
+  capacity: 1000
