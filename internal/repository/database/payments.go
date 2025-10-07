@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+
 	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/internal/models"
 )
 

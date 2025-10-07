@@ -3,8 +3,9 @@ package database
 import (
 	"database/sql"
 	"fmt"
-	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/internal/models"
 	"strconv"
+
+	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/internal/models"
 )
 
 const (

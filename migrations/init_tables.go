@@ -3,9 +3,10 @@ package migrations
 import (
 	"database/sql"
 	"fmt"
+	"os"
+
 	_ "github.com/lib/pq"
 	"go.uber.org/zap"
-	"os"
 )
 
 const path = "migrations/schema.sql"

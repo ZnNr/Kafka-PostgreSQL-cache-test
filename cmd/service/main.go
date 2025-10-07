@@ -46,7 +46,7 @@ func main() {
 	appCache := initializeCache(cfg, ordersRepo, logger)
 	defer closeCache(appCache, logger)
 
-	httpServer := initializeController(cfgPath, appCache, logger)
+	httpServer := initializeController(cfg, appCache, logger)
 	startServer(httpServer, logger)
 
 	// Канал для системных сигналов
@@ -148,8 +148,8 @@ func closeCache(appCache cache.Cache, logger *zap.Logger) {
 	}
 }
 
-func initializeController(cfg string, appCache cache.Cache, logger *zap.Logger) *server.Server {
-	httpServer, err := server.New(cfg, appCache)
+func initializeController(cfg *config.Config, appCache cache.Cache, logger *zap.Logger) *server.Server {
+	httpServer, err := server.New(cfg, appCache, logger)
 	if err != nil {
 		logger.Fatal("Controller initialization error", zap.Error(err))
 	}
@@ -169,7 +169,15 @@ func subscribeToKafka(cache cache.Cache, repo *repository.OrdersRepo, logger *za
 		defer wg.Done()
 
 		// Добавляем brokers как шестой параметр
-		if err := consumer.Subscribe(ctx, cache, repo, logger, &wg, []string{"localhost:9092"}); err != nil {
+		if err := consumer.Subscribe(
+			ctx,
+			cache,
+			repo,
+			logger,
+			&wg,
+			cfg.Kafka.Brokers,
+			cfg.Kafka.DlqTopic, // ← передаём DLQ топик
+		); err != nil {
 			logger.Error("Consumer error", zap.Error(err))
 		} else {
 			logger.Info("Consumer started successfully")

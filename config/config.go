@@ -4,6 +4,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/internal/cache"
 	"github.com/ilyakaznacheev/cleanenv"
@@ -46,6 +47,7 @@ type CacheConfig struct {
 	Password string          `yaml:"password" env:"CACHE_PASSWORD" env-default:""`
 	DB       int             `yaml:"db" env:"CACHE_DB" env-default:"0"`
 	Capacity int             `yaml:"capacity" env:"CACHE_CAPACITY" env-default:"1000"`
+	TTL      string          `yaml:"ttl" env:"CACHE_TTL" env-default:"30m"`
 }
 
 // Load загружает конфигурацию из файла
@@ -127,6 +129,12 @@ func (c *CacheConfig) Validate() error {
 		if c.Capacity <= 0 {
 			return fmt.Errorf("cache.capacity must be positive for in-memory cache")
 		}
+		// Проверяем, что TTL парсится
+		if c.TTL != "" {
+			if _, err := time.ParseDuration(c.TTL); err != nil {
+				return fmt.Errorf("invalid cache.ttl format: %w", err)
+			}
+		}
 	default:
 		return fmt.Errorf("unknown cache type: %s", c.Type)
 	}
@@ -153,7 +161,20 @@ func (c *CacheConfig) GetCacheAddress() string {
 }
 
 // ToCacheConfig преобразует в конфиг для фабрики кэша
-func (c *CacheConfig) ToCacheConfig() cache.Config {
+func (c *CacheConfig) ToCacheConfig() (cache.Config, error) {
+	var ttl time.Duration
+	var err error
+
+	if c.TTL != "" {
+		ttl, err = time.ParseDuration(c.TTL)
+		if err != nil {
+			return cache.Config{}, fmt.Errorf("invalid cache.ttl format: %w", err)
+		}
+	} else {
+		// Значение по умолчанию, если TTL пустой (хотя env-default задан)
+		ttl = 30 * time.Minute
+	}
+
 	return cache.Config{
 		Type: c.Type,
 		Redis: cache.RedisConfig{
@@ -162,5 +183,6 @@ func (c *CacheConfig) ToCacheConfig() cache.Config {
 			DB:       c.DB,
 		},
 		Capacity: c.Capacity,
-	}
+		TTL:      ttl,
+	}, nil
 }

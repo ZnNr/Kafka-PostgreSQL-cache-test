@@ -3,8 +3,9 @@ package migrations
 import (
 	"database/sql"
 	"fmt"
-	"go.uber.org/zap"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 //Migration
