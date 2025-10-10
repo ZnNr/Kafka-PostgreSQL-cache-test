@@ -54,7 +54,7 @@ func main() {
 	signal.Notify(sigchan, os.Interrupt, syscall.SIGTERM)
 
 	// Kafka consumer
-	subscribeToKafka(appCache, ordersRepo, logger, sigchan)
+	subscribeToKafka(cfg, appCache, ordersRepo, logger, sigchan)
 
 	logger.Info("Application shutting down")
 }
@@ -157,7 +157,7 @@ func initializeController(cfg *config.Config, appCache cache.Cache, logger *zap.
 	return httpServer
 }
 
-func subscribeToKafka(cache cache.Cache, repo *repository.OrdersRepo, logger *zap.Logger, sigchan chan os.Signal) {
+func subscribeToKafka(cfg *config.Config, cache cache.Cache, repo *repository.OrdersRepo, logger *zap.Logger, sigchan chan os.Signal) {
 	// Создаем контекст с отменой, чтобы корректно завершать работу
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

@@ -1,19 +1,22 @@
 package datagenerators
 
 import (
+	"math/rand"
+	"time"
+
 	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/internal/models"
 	"github.com/brianvoe/gofakeit/v6"
 )
 
+// GenerateOrder — генерирует валидный заказ (как у тебя)
 func GenerateOrder() models.Order {
-	// Опционально: зафиксировать seed для воспроизводимости в тестах
-	// gofakeit.Seed(123)
+	gofakeit.Seed(time.Now().UnixNano()) // случайность при каждом запуске
 
 	order := models.Order{
 		OrderUID:          gofakeit.UUID(),
 		TrackNumber:       gofakeit.LetterN(15),
 		EntryPoint:        gofakeit.DomainName(),
-		LocaleCode:        gofakeit.RandomString([]string{"en", "ru", "zh", "es", "de"}), // LanguageCode нет → делаем вручную
+		LocaleCode:        gofakeit.RandomString([]string{"en", "ru", "zh", "es", "de"}),
 		InternalSignature: gofakeit.Password(true, true, true, true, true, 16),
 		CustomerId:        gofakeit.Username(),
 		DeliveryService:   gofakeit.Company(),
@@ -34,8 +37,6 @@ func GenerateOrder() models.Order {
 	}
 	order.Delivery.OrderUID = order.OrderUID
 
-	// Валюта: gofakeit.Currency() возвращает структуру, но у неё нет .Code
-	// Используем список кодов вручную
 	currencies := []string{"USD", "RUB", "EUR", "CNY", "GBP", "JPY"}
 	banks := []string{"Alpha Bank", "Sberbank", "VTB", "Raiffeisen", "Tinkoff"}
 
@@ -52,7 +53,6 @@ func GenerateOrder() models.Order {
 		CustomFee:       float64(gofakeit.Number(100, 10000)) / 100,
 	}
 
-	// Генерация товаров
 	itemCount := gofakeit.Number(1, 5)
 	order.Items = make([]models.OrderItem, itemCount)
 	sizes := []string{"XS", "S", "M", "L", "XL", "XXL"}
@@ -75,4 +75,90 @@ func GenerateOrder() models.Order {
 	}
 
 	return order
+}
+
+// --- ГЕНЕРАТОРЫ НЕВАЛИДНЫХ ДАННЫХ ---
+
+// GenerateInvalidOrder_EmptyUID — заказ без OrderUID
+func GenerateInvalidOrder_EmptyUID() models.Order {
+	order := GenerateOrder()
+	order.OrderUID = ""
+	return order
+}
+
+// GenerateInvalidOrder_NegativeAmount — отрицательная сумма платежа
+func GenerateInvalidOrder_NegativeAmount() models.Order {
+	order := GenerateOrder()
+	order.Payment.AmountTotal = -100.0
+	return order
+}
+
+// GenerateInvalidOrder_MissingDelivery — нет данных о доставке
+func GenerateInvalidOrder_MissingDelivery() models.Order {
+	order := GenerateOrder()
+	order.Delivery = models.Delivery{} // пустая структура
+	return order
+}
+
+// GenerateInvalidOrder_InvalidEmail — невалидный email
+func GenerateInvalidOrder_InvalidEmail() models.Order {
+	order := GenerateOrder()
+	order.Delivery.Email = "not-an-email" // намеренно битый
+	return order
+}
+
+// GenerateInvalidOrder_BigSalePercent — скидка > 100%
+func GenerateInvalidOrder_BigSalePercent() models.Order {
+	order := GenerateOrder()
+	for i := range order.Items {
+		order.Items[i].SalePercent = 150.0 // >100% — недопустимо
+	}
+	return order
+}
+
+// GenerateMalformedJSON_ReturnsBytes — возвращает битые JSON как []byte
+func GenerateMalformedJSON_ReturnsBytes() []byte {
+	// Примеры битых JSON
+	malformed := []string{
+		`{"order_uid": "abc123",}`,                       // лишняя запятая
+		`{"order_uid": "abc123", "price": "not-number"}`, // строка вместо числа
+		`{"order_uid": "", "amount": 100}`,               // пустой UID
+		`{ "order_uid": null }`,                          // null
+		`{"track_number": 12345}`,                        // число вместо строки
+		`{"items": [{}]}`,                                // пустой item
+		`{ "extra": #invalid }`,                          // синтаксис не JSON
+		"",                                               // пусто
+		randString(10000),                                // мусор
+	}
+
+	return []byte(malformed[rand.Intn(len(malformed))])
+}
+
+// GenerateInvalidOrdersBatch — генерирует несколько невалидных заказов
+func GenerateInvalidOrdersBatch(count int) []models.Order {
+	var orders []models.Order
+	generators := []func() models.Order{
+		GenerateInvalidOrder_EmptyUID,
+		GenerateInvalidOrder_NegativeAmount,
+		GenerateInvalidOrder_MissingDelivery,
+		GenerateInvalidOrder_InvalidEmail,
+		GenerateInvalidOrder_BigSalePercent,
+	}
+
+	for i := 0; i < count; i++ {
+		gen := generators[i%len(generators)]
+		orders = append(orders, gen())
+	}
+
+	return orders
+}
+
+// Вспомогательная функция: случайная строка (для мусора)
+func randString(n int) string {
+	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(b)
 }

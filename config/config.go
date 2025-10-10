@@ -35,8 +35,9 @@ type ConfigDB struct {
 
 // KafkaConfig конфигурация Kafka
 type KafkaConfig struct {
-	Brokers []string `yaml:"brokers" env:"KAFKA_BROKERS" env-separator:"," env-default:"localhost:9092"`
-	Topic   string   `yaml:"topic" env:"KAFKA_TOPIC" env-default:"orders"`
+	Brokers  []string `yaml:"brokers" env:"KAFKA_BROKERS" env-separator:"," env-default:"localhost:9092"`
+	Topic    string   `yaml:"topic" env:"KAFKA_TOPIC" env-default:"orders"`
+	DlqTopic string   `yaml:"dlq_topic" env:"KAFKA_DLQ_TOPIC" env-default:"orders.dlq"`
 }
 
 // CacheConfig конфигурация кэша
@@ -106,8 +107,10 @@ func (c *Config) Validate() error {
 	if c.Kafka.Topic == "" {
 		return fmt.Errorf("kafka.topic is required")
 	}
+	if c.Kafka.DlqTopic == "" { // ← новая проверка
+		return fmt.Errorf("kafka.dlq_topic is required")
+	}
 
-	// Валидация конфигурации кэша
 	if err := c.Cache.Validate(); err != nil {
 		return fmt.Errorf("cache validation failed: %w", err)
 	}
