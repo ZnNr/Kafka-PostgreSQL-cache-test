@@ -8,9 +8,8 @@ import (
 	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/internal/cache"
 	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/internal/models"
 	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/internal/repository"
-	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/internal/validation"
+	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/internal/service"
 	"go.uber.org/zap"
-	"sync"
 	"time"
 )
 
@@ -26,11 +25,9 @@ func Subscribe(
 	appCache cache.Cache,
 	db *repository.OrdersRepo,
 	logger *zap.Logger,
-	wg *sync.WaitGroup,
 	brokers []string,
 	dlqTopic string, // ← новая топика для DLQ
 ) error {
-	defer wg.Done()
 
 	if appCache == nil {
 		return fmt.Errorf("cache cannot be nil")
@@ -42,7 +39,7 @@ func Subscribe(
 		return fmt.Errorf("logger cannot be nil")
 	}
 	// Создаем валидатор
-	validator := validation.NewOrderValidator()
+	validator := service.NewOrderValidator()
 	// Восстанавливаем кеш из БД при старте
 	logger.Info("Restoring cache from database...")
 	if err := restoreCacheFromDB(ctx, appCache, db, logger); err != nil {
@@ -72,7 +69,7 @@ func runConsumer(
 	db *repository.OrdersRepo,
 	logger *zap.Logger,
 	brokers []string,
-	validator *validation.OrderValidator,
+	validator *service.OrderValidator,
 	dlqTopic string,
 ) error {
 	// Создаем асинхронного продюсера для DLQ
@@ -161,7 +158,7 @@ func handleMessage(
 	appCache cache.Cache,
 	db *repository.OrdersRepo,
 	logger *zap.Logger,
-	validator *validation.OrderValidator,
+	validator *service.OrderValidator,
 	producer sarama.AsyncProducer,
 	dlqTopic string,
 ) {
@@ -241,7 +238,7 @@ func sendToDLQ(producer sarama.AsyncProducer, dlqTopic string, msg *sarama.Consu
 	}
 
 	// --- Headers: преобразуй []*RecordHeader → []RecordHeader ---
-	headers := make([]sarama.RecordHeader, 0, len(msg.Headers))
+	headers := make([]sarama.RecordHeader, 0, len(msg.Headers)+1)
 	for _, h := range msg.Headers {
 		if h != nil {
 			headers = append(headers, sarama.RecordHeader{
@@ -250,6 +247,10 @@ func sendToDLQ(producer sarama.AsyncProducer, dlqTopic string, msg *sarama.Consu
 			})
 		}
 	}
+	headers = append(headers, sarama.RecordHeader{
+		Key:   []byte("dlq_reason"),
+		Value: []byte(reason),
+	})
 
 	// --- Создаём сообщение для DLQ ---
 	dlqMsg := &sarama.ProducerMessage{

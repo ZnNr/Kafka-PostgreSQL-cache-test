@@ -12,7 +12,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 )
 
@@ -52,11 +51,30 @@ func main() {
 	// Канал для системных сигналов
 	sigchan := make(chan os.Signal, 1)
 	signal.Notify(sigchan, os.Interrupt, syscall.SIGTERM)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	// Kafka consumer
-	subscribeToKafka(cfg, appCache, ordersRepo, logger, sigchan)
+	go func() {
+		if err := consumer.Subscribe(
+			ctx,
+			appCache,
+			ordersRepo,
+			logger,
+			cfg.Kafka.Brokers,
+			cfg.Kafka.DlqTopic,
+		); err != nil {
+			logger.Error("Consumer error", zap.Error(err))
+		}
+	}()
+	logger.Info("Kafka consumer started")
 
-	logger.Info("Application shutting down")
+	<-sigchan
+	logger.Info("Received signal, shutting down...")
+
+	cancel()
+	_ = httpServer.Shutdown()
+
+	logger.Info("Application shut down gracefully")
 }
 
 func startServer(server *server.Server, logger *zap.Logger) {
@@ -155,39 +173,4 @@ func initializeController(cfg *config.Config, appCache cache.Cache, logger *zap.
 	}
 	logger.Info("Controller initialized successfully")
 	return httpServer
-}
-
-func subscribeToKafka(cfg *config.Config, cache cache.Cache, repo *repository.OrdersRepo, logger *zap.Logger, sigchan chan os.Signal) {
-	// Создаем контекст с отменой, чтобы корректно завершать работу
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
-
-		// Добавляем brokers как шестой параметр
-		if err := consumer.Subscribe(
-			ctx,
-			cache,
-			repo,
-			logger,
-			&wg,
-			cfg.Kafka.Brokers,
-			cfg.Kafka.DlqTopic, // ← передаём DLQ топик
-		); err != nil {
-			logger.Error("Consumer error", zap.Error(err))
-		} else {
-			logger.Info("Consumer started successfully")
-		}
-	}()
-
-	sig := <-sigchan
-	logger.Info("Received signal, shutting down...", zap.String("signal", sig.String()))
-	cancel()
-
-	wg.Wait() // Ждем завершения работы go-рутины
-	logger.Info("Consumer shut down gracefully")
 }

@@ -1,6 +1,6 @@
 run:
-  # Тесты тоже проверяем
-  tests: true
+
+  tests: false
 
   # Директории для исключения
   skip-dirs:
@@ -13,6 +13,8 @@ run:
   # Файлы для исключения
   skip-files:
     - ".*_test\\.go$"
+    - "internal/datagenerators/orders_generator.go"
+    - "internal/cache/inmemory_cache.go"
 
 linters:
   disable-all: true

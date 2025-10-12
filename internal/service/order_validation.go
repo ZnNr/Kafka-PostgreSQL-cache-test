@@ -1,11 +1,16 @@
 // internal/validation/order_validator.go
-package validation
+package service
 
 import (
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/internal/models"
 )
+
+// emailRegex — строгая проверка email (без поддержки unicode)
+var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
 
 // OrderValidator предоставляет методы для валидации заказов
 type OrderValidator struct{}
@@ -44,7 +49,12 @@ func (v *OrderValidator) validateDelivery(delivery models.Delivery) bool {
 		delivery.City != "" &&
 		delivery.Address != "" &&
 		delivery.Region != "" &&
-		delivery.Email != ""
+		v.isValidEmail(delivery.Email)
+}
+
+// isValidEmail проверяет, что email не пустой и соответствует формату
+func (v *OrderValidator) isValidEmail(email string) bool {
+	return email != "" && emailRegex.MatchString(strings.ToLower(email))
 }
 
 // validatePayment проверяет валидность данных платежа
@@ -85,7 +95,12 @@ func (v *OrderValidator) validateItem(item models.OrderItem) bool {
 		item.LineTotal >= 0 &&
 		item.ProductID != 0 &&
 		item.BrandName != "" &&
-		item.SalePercent >= 0
+		v.isValidSalePercent(item.SalePercent)
+}
+
+// isValidSalePercent проверяет, что скидка в диапазоне [0, 100]
+func (v *OrderValidator) isValidSalePercent(sale float64) bool {
+	return sale >= 0 && sale <= 100
 }
 
 // validateDate проверяет валидность даты создания

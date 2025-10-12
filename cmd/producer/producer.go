@@ -1,11 +1,14 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/cmd/ui/menu"
+	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/internal/service"
 	"log"
+	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/IBM/sarama"
@@ -27,18 +30,14 @@ func main() {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	// Подключение к базе данных
+	// Подключение к БД
 	ordersRepo, err := repository.New(cfg)
 	if err != nil {
 		log.Fatalf("Connection to DB failed: %v", err)
 	}
-	defer func() {
-		if err := ordersRepo.DB.Close(); err != nil {
-			log.Fatalf("Failed to close database connection: %v", err)
-		}
-	}()
+	defer ordersRepo.DB.Close()
 
-	// Проверка наличия брокеров
+	// Проверка брокеров
 	brokers := cfg.Kafka.Brokers
 	if len(brokers) == 0 {
 		log.Fatalf("No Kafka brokers configured")
@@ -49,177 +48,33 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to connect to Kafka: %v", err)
 	}
-	defer func() {
-		if err := producer.Close(); err != nil {
-			log.Fatalf("Failed to close Kafka producer: %v", err)
-		}
-	}()
+	defer producer.Close()
 
-	log.Println("✅ Producer is launched!")
+	// Создание OrderProducer
+	orderProducer := service.NewOrderProducer(producer, topic)
+
+	log.Println("Producer is launched!")
 	log.Printf("📡 Connected to Kafka brokers: %v", brokers)
 
-	// Загружаем заказы из БД
+	// Загружаем заказы
 	orders, err := loadOrdersFromDB(ordersRepo)
 	if err != nil {
 		log.Fatalf("Failed to load orders: %v", err)
 	}
 
-	// Основной цикл
+	// Основной цикл с меню
 	for {
-		fmt.Println("\n=== Order Producer ===")
-		fmt.Println("s - Generate and send new VALID order")
-		fmt.Println("c - Send copy of existing order from DB")
-		fmt.Println("i - Send INVALID order (empty OrderUID)")
-		fmt.Println("n - Send INVALID order (negative amount)")
-		fmt.Println("e - Send INVALID order (invalid email)")
-		fmt.Println("b - Send INVALID order (sale >100%)")
-		fmt.Println("m - Send MALFORMED JSON (unparsable)")
-		fmt.Println("r - Refresh orders list from database")
-		fmt.Println("exit - Quit program")
-		fmt.Print("Choose option: ")
+		menuInstance := menu.NewMenu(orderProducer, orders)
+		menuInstance.SetReader(bufio.NewReader(os.Stdin)) // stdin
+		menuInstance.Run()
 
-		var input string
-		_, err := fmt.Scanln(&input)
-		if err != nil {
-			log.Printf("Input error: %v", err)
-			continue
-		}
-
-		switch input {
-		case "exit":
-			fmt.Println("👋 Exiting the program...")
-			return
-
-		case "r":
-			orders, err = loadOrdersFromDB(ordersRepo)
-			if err != nil {
-				log.Printf("❌ Failed to refresh orders: %v", err)
-			} else {
-				log.Printf("🔁 Refreshed: loaded %d orders from DB", len(orders))
-			}
-
-		case "s":
-			order := datagenerators.GenerateOrder()
-			log.Printf("✅ Generated NEW valid order: %s", order.OrderUID)
-
-			if err := validateOrder(order); err != nil {
-				log.Printf("❌ Validation failed: %v", err)
-				continue
-			}
-
-			data, err := json.Marshal(order)
-			if err != nil {
-				log.Printf("❌ Marshal error: %v", err)
-				continue
-			}
-
-			if err := PushOrderToQueue(producer, topic, data); err != nil {
-				log.Printf("❌ Failed to send to Kafka: %v", err)
-			} else {
-				log.Printf("📤 Sent valid order %s to '%s'", order.OrderUID, topic)
-			}
-
-		case "c":
-			if len(orders) == 0 {
-				fmt.Println("🚫 No orders available in database.")
-				continue
-			}
-
-			fmt.Println("Available orders:")
-			for i, o := range orders {
-				fmt.Printf("%d: %s (Created: %s)\n", i, o.OrderUID, o.DateCreated.Format("2006-01-02 15:04"))
-			}
-
-			fmt.Print("Select order number: ")
-			var idxStr string
-			fmt.Scanln(&idxStr)
-
-			idx, err := strconv.Atoi(idxStr)
-			if err != nil || idx < 0 || idx >= len(orders) {
-				log.Printf("❌ Invalid selection: %s", idxStr)
-				continue
-			}
-
-			selected := orders[idx]
-			log.Printf("📋 Selected order: %s", selected.OrderUID)
-
-			if err := validateOrder(selected); err != nil {
-				log.Printf("❌ Validation failed: %v", err)
-				continue
-			}
-
-			data, err := json.Marshal(selected)
-			if err != nil {
-				log.Printf("❌ Marshal error: %v", err)
-				continue
-			}
-
-			if err := PushOrderToQueue(producer, topic, data); err != nil {
-				log.Printf("❌ Failed to send to Kafka: %v", err)
-			} else {
-				log.Printf("📤 Sent existing order %s to '%s'", selected.OrderUID, topic)
-			}
-
-		// === Невалидные заказы ===
-		case "i":
-			order := datagenerators.GenerateInvalidOrder_EmptyUID()
-			log.Printf("❌ Generated invalid order (empty UID): %s", order.OrderUID)
-			data, _ := json.Marshal(order)
-			if err := PushOrderToQueue(producer, topic, data); err != nil {
-				log.Printf("❌ Failed to send: %v", err)
-			} else {
-				log.Printf("📤 Sent to Kafka (expect DLQ): %s", getUID(order))
-			}
-
-		case "n":
-			order := datagenerators.GenerateInvalidOrder_NegativeAmount()
-			log.Printf("❌ Generated invalid order (negative amount): %s", order.OrderUID)
-			data, _ := json.Marshal(order)
-			if err := PushOrderToQueue(producer, topic, data); err != nil {
-				log.Printf("❌ Failed to send: %v", err)
-			} else {
-				log.Printf("📤 Sent to Kafka (expect DLQ): %s", getUID(order))
-			}
-
-		case "e":
-			order := datagenerators.GenerateInvalidOrder_InvalidEmail()
-			log.Printf("❌ Generated invalid order (invalid email): %s", order.OrderUID)
-			data, _ := json.Marshal(order)
-			if err := PushOrderToQueue(producer, topic, data); err != nil {
-				log.Printf("❌ Failed to send: %v", err)
-			} else {
-				log.Printf("📤 Sent to Kafka (expect DLQ): %s", getUID(order))
-			}
-
-		case "b":
-			order := datagenerators.GenerateInvalidOrder_BigSalePercent()
-			log.Printf("❌ Generated invalid order (sale >100%%): %s", order.OrderUID)
-			data, _ := json.Marshal(order)
-			if err := PushOrderToQueue(producer, topic, data); err != nil {
-				log.Printf("❌ Failed to send: %v", err)
-			} else {
-				log.Printf("📤 Sent to Kafka (expect DLQ): %s", getUID(order))
-			}
-
-		case "m":
-			rawMessage := datagenerators.GenerateMalformedJSON_ReturnsBytes()
-			if len(rawMessage) == 0 {
-				log.Printf("⚠️  Empty malformed message generated")
-				continue
-			}
-			if err := PushOrderToQueue(producer, topic, rawMessage); err != nil {
-				log.Printf("❌ Failed to send malformed JSON: %v", err)
-			} else {
-				log.Printf("📤 Sent %d-byte MALFORMED JSON (expect unmarshal error)", len(rawMessage))
-			}
-
-		default:
-			fmt.Println("❌ Invalid input. Please choose:")
-			fmt.Println("  s, c — валидные заказы")
-			fmt.Println("  i, n, e, b — невалидные")
-			fmt.Println("  m — битый JSON")
-			fmt.Println("  r — обновить")
-			fmt.Println("  exit — выйти")
+		// Если меню вернуло ошибку "refresh_signal" — обновляем заказы
+		var errRefresh error
+		orders, errRefresh = loadOrdersFromDB(ordersRepo)
+		if errRefresh != nil {
+			log.Printf("Failed to refresh orders: %v", errRefresh)
+		} else {
+			log.Printf("Refreshed: loaded %d orders from DB", len(orders))
 		}
 	}
 }
@@ -234,17 +89,17 @@ func loadOrdersFromDB(repo *repository.OrdersRepo) ([]models.Order, error) {
 	return orders, nil
 }
 
-// processOrder обрабатывает команду генерации или выбора заказа
 // processOrder обрабатывает команду пользователя: генерация, выбор или отправка невалидных данных
-func processOrder(command string, orders []models.Order, repo *repository.OrdersRepo, producer sarama.SyncProducer, topic string) error {
+func processOrder(command string, orders []models.Order, repo *repository.OrdersRepo, orderProducer *service.OrderProducer) error {
 	var order models.Order
 	var orderJSON []byte
 	var err error
+
 	switch command {
 	case "s":
 		// Генерация нового валидного заказа
 		order = datagenerators.GenerateOrder()
-		log.Printf("✅ Generated NEW valid order: %s", order.OrderUID)
+		log.Printf("Generated NEW valid order: %s", order.OrderUID)
 
 	case "c":
 		// Выбор существующего заказа из БД
@@ -270,53 +125,51 @@ func processOrder(command string, orders []models.Order, repo *repository.Orders
 		}
 
 		order = orders[index]
-		log.Printf("📋 Selected existing order: %s", order.OrderUID)
+		log.Printf("Selected existing order: %s", order.OrderUID)
 
 	case "i":
 		// Невалидный: пустой OrderUID
 		order = datagenerators.GenerateInvalidOrder_EmptyUID()
-		log.Printf("❌ Generated INVALID order (empty OrderUID): %s", order.OrderUID)
+		log.Printf("Generated INVALID order (empty OrderUID): %s", order.OrderUID)
 
 	case "n":
 		// Невалидный: отрицательная сумма
 		order = datagenerators.GenerateInvalidOrder_NegativeAmount()
-		log.Printf("❌ Generated INVALID order (negative amount): %s", order.OrderUID)
+		log.Printf("Generated INVALID order (negative amount): %s", order.OrderUID)
 
 	case "e":
 		// Невалидный: некорректный email
 		order = datagenerators.GenerateInvalidOrder_InvalidEmail()
-		log.Printf("❌ Generated INVALID order (invalid email): %s", order.OrderUID)
+		log.Printf("Generated INVALID order (invalid email): %s", order.OrderUID)
 
 	case "b":
 		// Невалидный: скидка >100%
 		order = datagenerators.GenerateInvalidOrder_BigSalePercent()
-		log.Printf("❌ Generated INVALID order (sale >100%%): %s", order.OrderUID)
+		log.Printf("Generated INVALID order (sale >100%%): %s", order.OrderUID)
 
 	default:
 		return fmt.Errorf("unknown command: %s", command)
 	}
 
-	// Для всех случаев, кроме "m", преобразуем в JSON
+	// Для всех случаев преобразуем в JSON
 	orderJSON, err = json.Marshal(order)
 	if err != nil {
 		return fmt.Errorf("failed to marshal order: %w", err)
 	}
 
-	// Пропускаем валидацию только для явно невалидных заказов
-	if !strings.HasPrefix(command, "i") && !strings.HasPrefix(command, "n") &&
-		!strings.HasPrefix(command, "e") && !strings.HasPrefix(command, "b") {
-		// Валидируем только валидные/существующие заказы
+	// Валидация только для валидных типов (s, c)
+	if command == "s" || command == "c" {
 		if err := validateOrder(order); err != nil {
-			return fmt.Errorf("order validation failed: %w", err)
+			return fmt.Errorf("validation failed: %w", err)
 		}
 	}
 
-	// Отправляем в Kafka
-	if err := PushOrderToQueue(producer, topic, orderJSON); err != nil {
+	// Отправляем в Kafka через OrderProducer
+	if err := orderProducer.Send(orderJSON); err != nil {
 		return fmt.Errorf("failed to send to Kafka: %w", err)
 	}
 
-	log.Printf("📤 Successfully sent order %s to Kafka topic '%s'", getUID(order), topic)
+	log.Printf("Successfully sent order %s to Kafka topic", getUID(order))
 	return nil
 }
 
@@ -365,33 +218,4 @@ func ConnectProducer(brokers []string) (sarama.SyncProducer, error) {
 	}
 
 	return producer, nil
-}
-
-// PushOrderToQueue отправляет сообщение в Kafka с обработкой ошибок
-func PushOrderToQueue(producer sarama.SyncProducer, topic string, message []byte) error {
-	if producer == nil {
-		return fmt.Errorf("producer is not initialized")
-	}
-	if len(message) == 0 {
-		return fmt.Errorf("message is empty")
-	}
-	if topic == "" {
-		return fmt.Errorf("topic is required")
-	}
-
-	// Создание сообщения с ключом для партиционирования
-	msg := &sarama.ProducerMessage{
-		Topic: topic,
-		Value: sarama.ByteEncoder(message),
-	}
-
-	partition, offset, err := producer.SendMessage(msg)
-	if err != nil {
-		return fmt.Errorf("failed to send message: %w", err)
-	}
-
-	log.Printf("Message successfully delivered to topic %s, partition %d, offset %d",
-		topic, partition, offset)
-
-	return nil
 }
