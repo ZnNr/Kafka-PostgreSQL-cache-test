@@ -42,7 +42,7 @@ jobs:
         ports:
           - 2181:2181
         options: >-
-          --health-cmd "echo stat | nc localhost 2181 | grep Mode"
+          --health-cmd "bash -c 'cat < /dev/null > /dev/tcp/localhost/2181'"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
