@@ -4,12 +4,13 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/cmd/ui/menu"
-	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/internal/service"
 	"log"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/cmd/ui/menu"
+	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/internal/service"
 
 	"github.com/IBM/sarama"
 	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/config"

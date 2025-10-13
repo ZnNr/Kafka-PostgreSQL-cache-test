@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"github.com/IBM/sarama"
 	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/internal/cache"
 	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/internal/models"
 	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/internal/repository"
 	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/internal/service"
 	"go.uber.org/zap"
-	"time"
 )
 
 const (

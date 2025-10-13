@@ -4,10 +4,11 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/internal/service"
 	"log"
 	"strconv"
 	"strings"
+
+	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/internal/service"
 
 	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/internal/datagenerators"
 	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/internal/models"

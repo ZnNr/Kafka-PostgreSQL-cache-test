@@ -2,6 +2,11 @@ package main
 
 import (
 	"context"
+	"log"
+	"os"
+	"os/signal"
+	"syscall"
+
 	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/config"
 	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/internal/cache"
 	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/internal/consumer"
@@ -9,10 +14,6 @@ import (
 	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/internal/server"
 	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/migrations"
 	"go.uber.org/zap"
-	"log"
-	"os"
-	"os/signal"
-	"syscall"
 )
 
 var (

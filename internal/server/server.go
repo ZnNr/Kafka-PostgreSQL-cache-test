@@ -3,9 +3,10 @@ package server
 import (
 	"context"
 	"fmt"
-	"go.uber.org/zap"
 	"net/http"
 	"time"
+
+	"go.uber.org/zap"
 
 	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/config"
 	"github.com/ZnNr/Kafka-PostgreSQL-cache-test/internal/cache"
