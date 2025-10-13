@@ -1,36 +1,29 @@
-# Makefile с исправлениями
-.PHONY: fmt vet lint test coverage cover-html cover-func clean help all run-service run-producer build-service build-producer up down up-logs redis-cli psql logs status install-lint
-
 # Включаем CGO для race detection
 export CGO_ENABLED=1
 
 # Установка golangci-lint
 install-lint:
 	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-	@echo "✅ golangci-lint установлен"
+	@echo "golangci-lint установлен"
 
-# Форматирование кода
+# Форматирование кода и управление импортами
 fmt:
+	@goimports -w .
 	@gofmt -s -l -w .
-	@echo "✓ Форматирование завершено"
+	@echo "Форматирование и импорты обновлены"
 
 # Проверка кода на ошибки
 vet:
 	@go mod tidy 2>/dev/null || true
 	@go vet ./...
-	@echo "✓ go vet прошёл"
+	@echo "go vet прошёл"
 
 # Линтинг кода
 lint:
 	@golangci-lint run ./... --config .golangci.yml 2>/dev/null || \
 	golangci-lint run ./cmd/... ./internal/... ./config/... 2>/dev/null || \
 	echo "Линтер завершен"
-	@echo "✓ Линтинг прошёл"
-
-# Быстрый линтинг
-lint-fast:
-	@golangci-lint run --fast ./... 2>/dev/null || echo "⚠️  Быстрый линтинг завершен"
-	@echo "Быстрый линтинг прошёл"
+	@echo "Линтинг прошёл"
 
 # Запуск тестов
 test:
@@ -49,13 +42,13 @@ coverage:
 	@go mod tidy 2>/dev/null || true
 	@go test -coverprofile=coverage.out ./...
 	@go tool cover -func=coverage.out
-	@echo "📊 Покрытие кода рассчитано. Файл: coverage.out"
-	@echo "💡 Используйте 'make cover-html' для просмотра в браузере"
+	@echo "Покрытие кода рассчитано. Файл: coverage.out"
+	@echo "Используйте 'make cover-html' для просмотра в браузере"
 
 # Покрытие в HTML
 cover-html: coverage
 	@go tool cover -html=coverage.out
-	@echo "🌐 Открываю отчёт о покрытии в браузере..."
+	@echo "Открываю отчёт о покрытии в браузере..."
 
 # Краткий отчёт о покрытии
 cover-func: coverage
@@ -108,10 +101,9 @@ run-all: run-service run-producer run-dlq
 # Помощь
 help:
 	@echo " Разработка и тестирование:"
-	@echo "  make fmt          — форматировать код"
+	@echo "  make fmt          — форматировать код и обновить импорты"
 	@echo "  make vet          — проверить ошибки"
 	@echo "  make lint         — запустить линтер"
-	@echo "  make lint-fast    — быстрый линтинг"
 	@echo "  make test         — запустить тесты"
 	@echo "  make test-race    — запустить тесты с race detection"
 	@echo "  make coverage     — запустить тесты с покрытием"

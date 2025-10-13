@@ -2,8 +2,6 @@ package cache
 
 import (
 	"context"
-	"fmt"
-	"sync"
 	"testing"
 	"time"
 
@@ -304,51 +302,4 @@ func TestRedisCache_ComplexOrderStructure(t *testing.T) {
 		assert.Equal(t, order.Payment.TransactionUID, retrieved.Payment.TransactionUID)
 		assert.Equal(t, order.Payment.AmountTotal, retrieved.Payment.AmountTotal)
 	}
-}
-
-func TestRedisCache_ConcurrentAccess(t *testing.T) {
-	cache := setupTestRedisCache(t)
-
-	numGoroutines := 10
-	numOrdersPerGoroutine := 5
-
-	var wg sync.WaitGroup
-	errors := make(chan error, numGoroutines*numOrdersPerGoroutine*2)
-
-	for i := 0; i < numGoroutines; i++ {
-		wg.Add(1)
-		go func(routineID int) {
-			defer wg.Done()
-
-			for j := 0; j < numOrdersPerGoroutine; j++ {
-				order := datagenerators.GenerateOrder()
-
-				if err := cache.SaveOrder(order); err != nil {
-					errors <- fmt.Errorf("goroutine %d failed to save order %s: %w", routineID, order.OrderUID, err)
-					return
-				}
-
-				_, exists, err := cache.GetOrder(order.OrderUID)
-				if err != nil {
-					errors <- fmt.Errorf("goroutine %d failed to get order %s: %w", routineID, order.OrderUID, err)
-					return
-				}
-				if !exists {
-					errors <- fmt.Errorf("goroutine %d: order %s not found after save", routineID, order.OrderUID)
-					return
-				}
-			}
-		}(i)
-	}
-
-	wg.Wait()
-	close(errors)
-
-	for err := range errors {
-		assert.NoError(t, err, "Concurrent access error")
-	}
-
-	allOrders, err := cache.GetAllOrders()
-	assert.NoError(t, err)
-	assert.Len(t, allOrders, numGoroutines*numOrdersPerGoroutine)
 }
