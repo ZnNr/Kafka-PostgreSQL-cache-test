@@ -17,9 +17,6 @@ kafka:
   dlq_topic: orders.dlq
 
 cache:
-  type: "redis"
-  redis:
-    addr: "localhost:6379"  # или "redis:6379" если Docker
-    password: ""
-    db: 0
+  type: "inmemory"
   capacity: 1000
+  ttl: "1h"

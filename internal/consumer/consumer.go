@@ -15,7 +15,8 @@ import (
 )
 
 const (
-	orderTopic       = "orders"
+	orderTopic = "orders"
+	//dlqTopic         = "orders.dlq"
 	operationTimeout = 30 * time.Second
 	reconnectDelay   = 5 * time.Second
 )
@@ -234,11 +235,8 @@ func sendToDLQ(producer sarama.AsyncProducer, dlqTopic string, msg *sarama.Consu
 	var keyEncoder sarama.Encoder
 	if msg.Key != nil {
 		keyEncoder = sarama.ByteEncoder(msg.Key)
-	} else {
-		keyEncoder = nil
 	}
 
-	// --- Headers: преобразуй []*RecordHeader → []RecordHeader ---
 	headers := make([]sarama.RecordHeader, 0, len(msg.Headers)+1)
 	for _, h := range msg.Headers {
 		if h != nil {
@@ -253,7 +251,6 @@ func sendToDLQ(producer sarama.AsyncProducer, dlqTopic string, msg *sarama.Consu
 		Value: []byte(reason),
 	})
 
-	// --- Создаём сообщение для DLQ ---
 	dlqMsg := &sarama.ProducerMessage{
 		Topic:   dlqTopic,
 		Key:     keyEncoder,
@@ -261,22 +258,44 @@ func sendToDLQ(producer sarama.AsyncProducer, dlqTopic string, msg *sarama.Consu
 		Headers: headers,
 	}
 
-	// Добавим причину в лог
-	zap.L().Warn("Sending message to DLQ",
+	zap.L().Warn("🔄 Attempting to send to DLQ",
 		zap.String("topic", dlqTopic),
 		zap.String("reason", reason),
-		zap.Int64("offset", msg.Offset),
-		zap.ByteString("key", msg.Key))
+		zap.Int64("offset", msg.Offset))
 
-	// Отправляем
+	// Отправляем с обработкой ошибок
 	select {
 	case producer.Input() <- dlqMsg:
-		zap.L().Info("Message sent to DLQ",
+		zap.L().Info("✅ Message queued for DLQ",
 			zap.String("topic", dlqTopic),
 			zap.String("reason", reason))
-	case <-time.After(time.Second):
-		zap.L().Error("DLQ send timeout",
-			zap.Error(fmt.Errorf("producer busy or disconnected")))
+
+		// Ждем подтверждения или ошибки
+		select {
+		case success := <-producer.Successes():
+			zap.L().Info("✅ Message confirmed sent to DLQ",
+				zap.String("topic", success.Topic),
+				zap.Int32("partition", success.Partition),
+				zap.Int64("offset", success.Offset))
+
+		case err := <-producer.Errors():
+			zap.L().Error("❌ Failed to send to DLQ",
+				zap.Error(err),
+				zap.String("reason", reason))
+
+		case <-time.After(5 * time.Second):
+			zap.L().Error("⏰ DLQ confirmation timeout",
+				zap.String("reason", reason))
+		}
+
+	case <-time.After(3 * time.Second):
+		zap.L().Error("⏰ DLQ producer input timeout - producer may be blocked",
+			zap.String("reason", reason))
+
+	case err := <-producer.Errors():
+		zap.L().Error("❌ DLQ producer error",
+			zap.Error(err),
+			zap.String("reason", reason))
 	}
 }
 
