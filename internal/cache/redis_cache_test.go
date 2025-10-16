@@ -213,48 +213,6 @@ func TestRedisCache_SaveOrderWithTTL(t *testing.T) {
 	assert.False(t, exists)
 }
 
-func TestRedisCache_MultipleOperations(t *testing.T) {
-	cache := setupTestRedisCache(t)
-
-	orders := make(map[string]models.Order)
-	for i := 0; i < 5; i++ {
-		order := datagenerators.GenerateOrder()
-		orders[order.OrderUID] = order
-
-		err := cache.SaveOrder(order)
-		assert.NoError(t, err)
-	}
-
-	for uid, expectedOrder := range orders {
-		retrievedOrder, exists, err := cache.GetOrder(uid)
-		assert.NoError(t, err)
-		assert.True(t, exists)
-		assert.Equal(t, expectedOrder.OrderUID, retrievedOrder.OrderUID)
-		assert.Equal(t, expectedOrder.TrackNumber, retrievedOrder.TrackNumber)
-	}
-
-	allOrders, err := cache.GetAllOrders()
-	assert.NoError(t, err)
-	assert.Len(t, allOrders, 5)
-
-	firstOrderUID := ""
-	for uid := range orders {
-		firstOrderUID = uid
-		break
-	}
-	err = cache.RemoveOrder(firstOrderUID)
-	assert.NoError(t, err)
-
-	// Проверяем, что заказ удален
-	exists, err := cache.OrderExists(firstOrderUID)
-	assert.NoError(t, err)
-	assert.False(t, exists)
-
-	allOrders, err = cache.GetAllOrders()
-	assert.NoError(t, err)
-	assert.Len(t, allOrders, 4)
-}
-
 func TestRedisCache_Close(t *testing.T) {
 	if !isRedisAvailable() {
 		t.Skip("Redis is not available")

@@ -9,7 +9,14 @@ A demonstration service with a simple interface displaying order data.  This tas
 - Обеспечивает сохранение данных при перезапуске сервиса
 - Позволяет легко масштабировать и мониторить кэш
 
-!миграция с версионированием не работает!
+ПОРЯДОК СБОКИ:
+СОБРАТЬ И ЗАПУСТИТЬ КОНТЕЙНЕРЫ docker-compose.yaml
+запустить основной сервис go cmd/service/main.go
+запустить продюсера данных go cmd/producer/producer.go
+запустить наблюдателя за очередью DLQ go cmd/dlq_reader/dlq_watcher.go
+
+видео демонстрация
+https://disk.yandex.ru/i/HTxwIjsdr6UBXg
 
 Тестовое задание
 Демонстрационный сервис с Kafka, PostgreSQL, кешем
